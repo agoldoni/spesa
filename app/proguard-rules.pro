@@ -1,0 +1,2 @@
+-keep class it.agoldoni.spesa.data.** { *; }
+-keep class it.agoldoni.spesa.sync.dto.** { *; }
