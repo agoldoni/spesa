@@ -12,5 +12,6 @@ data class ProductEntity(
     @PrimaryKey val id: String,
     val name: String,
     val nameKey: String,
-    val addedAt: Long
+    val addedAt: Long,
+    val updatedAt: Long = System.currentTimeMillis()
 )

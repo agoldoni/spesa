@@ -7,16 +7,13 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import it.agoldoni.spesa.BuildConfig
 import it.agoldoni.spesa.data.AppDatabase
 import it.agoldoni.spesa.data.dao.FavoriteDao
 import it.agoldoni.spesa.data.dao.ListItemDao
 import it.agoldoni.spesa.data.dao.MemberDao
 import it.agoldoni.spesa.data.dao.ProductDao
-import it.agoldoni.spesa.sync.FirebaseSyncSource
-import it.agoldoni.spesa.sync.LocalOnlySyncSource
+import it.agoldoni.spesa.sync.MqttSyncSource
 import it.agoldoni.spesa.sync.SyncSource
-import javax.inject.Provider
 import javax.inject.Singleton
 
 @Module
@@ -27,6 +24,7 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "spesa.db")
+            .fallbackToDestructiveMigration()
             .build()
 
     @Provides fun provideMemberDao(db: AppDatabase): MemberDao = db.memberDao()
@@ -36,8 +34,5 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideSyncSource(
-        firebase: Provider<FirebaseSyncSource>,
-        localOnly: Provider<LocalOnlySyncSource>
-    ): SyncSource = if (BuildConfig.FIREBASE_ENABLED) firebase.get() else localOnly.get()
+    fun provideSyncSource(impl: MqttSyncSource): SyncSource = impl
 }

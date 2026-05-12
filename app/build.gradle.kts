@@ -6,13 +6,6 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
-val googleServicesFile = file("google-services.json")
-val firebaseEnabled = googleServicesFile.exists()
-
-if (firebaseEnabled) {
-    apply(plugin = libs.plugins.google.services.get().pluginId)
-}
-
 android {
     namespace = "it.agoldoni.spesa"
     compileSdk = 35
@@ -26,7 +19,6 @@ android {
 
         buildConfigField("String", "APP_AUTHOR", "\"Alberto Goldoni\"")
         buildConfigField("String", "BUILD_DATE", "\"${providers.exec { commandLine("date", "+%Y-%m-%d %H:%M") }.standardOutput.asText.get().trim()}\"")
-        buildConfigField("boolean", "FIREBASE_ENABLED", firebaseEnabled.toString())
     }
 
     signingConfigs {
@@ -65,6 +57,14 @@ android {
         compose = true
         buildConfig = true
     }
+    packaging {
+        resources {
+            excludes += listOf(
+                "META-INF/INDEX.LIST",
+                "META-INF/io.netty.versions.properties"
+            )
+        }
+    }
 }
 
 dependencies {
@@ -89,6 +89,6 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.database.ktx)
+    implementation(libs.hivemq.mqtt.client)
+    implementation(libs.gson)
 }

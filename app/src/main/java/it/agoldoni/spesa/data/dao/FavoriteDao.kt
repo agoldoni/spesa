@@ -25,6 +25,9 @@ interface FavoriteDao {
     @Query("SELECT * FROM favorites ORDER BY ordering ASC")
     suspend fun getAll(): List<FavoriteEntity>
 
+    @Query("SELECT * FROM favorites WHERE id = :id")
+    suspend fun getById(id: String): FavoriteEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(favorite: FavoriteEntity)
 

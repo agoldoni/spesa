@@ -23,6 +23,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.MqttConfigActivity"
+            android:exported="false"
+            android:label="Configurazione MQTT"
+            android:theme="@style/Theme.Spesa" />
+
     </application>
 
 </manifest>

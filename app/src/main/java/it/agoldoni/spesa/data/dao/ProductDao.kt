@@ -15,6 +15,9 @@ interface ProductDao {
     @Query("SELECT * FROM products WHERE id = :id")
     suspend fun getById(id: String): ProductEntity?
 
+    @Query("SELECT * FROM products")
+    suspend fun getAll(): List<ProductEntity>
+
     @Query("SELECT * FROM products WHERE nameKey LIKE :prefix || '%' ORDER BY addedAt DESC LIMIT 10")
     fun observeSuggestions(prefix: String): Flow<List<ProductEntity>>
 

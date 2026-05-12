@@ -1,5 +1,6 @@
 package it.agoldoni.spesa.ui.shopping
 
+import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
@@ -58,34 +59,33 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import it.agoldoni.spesa.data.entity.MemberEntity
 import it.agoldoni.spesa.data.entity.ProductEntity
 import it.agoldoni.spesa.data.relation.FavoriteWithProduct
 import it.agoldoni.spesa.data.relation.ListItemWithDetails
+import it.agoldoni.spesa.ui.MqttConfigActivity
 import it.agoldoni.spesa.ui.components.FavoriteChip
-import it.agoldoni.spesa.ui.components.MemberAvatar
 import it.agoldoni.spesa.ui.components.QuantityStepper
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
-    val members by viewModel.members.collectAsState()
     val items by viewModel.items.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
     val itemCount by viewModel.itemCount.collectAsState()
     val totalQty by viewModel.totalQuantity.collectAsState()
-    val activeMemberId by viewModel.activeMemberId.collectAsState()
     val input by viewModel.input.collectAsState()
     val suggestions by viewModel.suggestions.collectAsState()
 
     val favoriteProductIds = remember(favorites) { favorites.map { it.productId }.toSet() }
     var showClearConfirm by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     if (showClearConfirm) {
         AlertDialog(
@@ -112,9 +112,9 @@ fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Header(
-                members = members,
-                activeMemberId = activeMemberId,
-                onSelectMember = viewModel::selectMember
+                onOpenSettings = {
+                    context.startActivity(Intent(context, MqttConfigActivity::class.java))
+                }
             )
         },
         bottomBar = {
@@ -159,11 +159,7 @@ fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun Header(
-    members: List<MemberEntity>,
-    activeMemberId: String?,
-    onSelectMember: (String) -> Unit
-) {
+private fun Header(onOpenSettings: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -181,16 +177,12 @@ private fun Header(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                members.forEach { member ->
-                    MemberAvatar(
-                        initial = member.name,
-                        color = Color(member.colorArgb.toInt()),
-                        size = 34.dp,
-                        selected = member.id == activeMemberId,
-                        onClick = { onSelectMember(member.id) }
-                    )
-                }
+            IconButton(onClick = onOpenSettings, modifier = Modifier.size(34.dp)) {
+                Icon(
+                    Icons.Default.Settings,
+                    contentDescription = "Configurazione MQTT",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
             }
         }
     }
@@ -383,22 +375,23 @@ private fun ItemRow(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
+        if (row.memberId != null && row.memberName != null && row.memberColor != null) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = row.memberName,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(row.memberColor.toInt()),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
         Spacer(Modifier.width(8.dp))
         QuantityStepper(
             quantity = row.quantity,
             onDecrement = onDecrement,
             onIncrement = onIncrement
         )
-        Spacer(Modifier.width(8.dp))
-        if (row.memberId != null && row.memberName != null && row.memberColor != null) {
-            MemberAvatar(
-                initial = row.memberName,
-                color = Color(row.memberColor.toInt()),
-                size = 26.dp
-            )
-        } else {
-            Box(modifier = Modifier.size(26.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant))
-        }
         Spacer(Modifier.width(4.dp))
         IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
             Icon(

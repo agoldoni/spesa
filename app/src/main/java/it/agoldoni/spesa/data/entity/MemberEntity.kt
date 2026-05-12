@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class MemberEntity(
     @PrimaryKey val id: String,
     val name: String,
-    val colorArgb: Long
+    val colorArgb: Long,
+    val updatedAt: Long = System.currentTimeMillis()
 )

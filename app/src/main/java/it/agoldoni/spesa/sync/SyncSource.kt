@@ -8,13 +8,13 @@ import it.agoldoni.spesa.data.entity.ProductEntity
 interface SyncSource {
     fun start()
     fun stop()
+    fun reconnectIfNeeded()
+    fun isConnected(): Boolean
 
     suspend fun pushMember(member: MemberEntity)
     suspend fun pushProduct(product: ProductEntity)
     suspend fun pushListItem(item: ListItemEntity)
     suspend fun deleteListItem(id: String)
-    suspend fun clearListItems()
     suspend fun pushFavorite(favorite: FavoriteEntity)
     suspend fun deleteFavorite(id: String)
-    suspend fun pushFavoriteOrder(orderedIds: List<String>)
 }

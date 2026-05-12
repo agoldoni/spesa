@@ -18,7 +18,7 @@ interface ListItemDao {
         FROM list_items li
         INNER JOIN products p ON p.id = li.productId
         LEFT JOIN members m ON m.id = li.memberId
-        ORDER BY li.addedAt ASC
+        ORDER BY p.name COLLATE NOCASE ASC
         """
     )
     fun observeAllWithDetails(): Flow<List<ListItemWithDetails>>
@@ -40,6 +40,9 @@ interface ListItemDao {
 
     @Query("SELECT id FROM list_items")
     suspend fun getAllIds(): List<String>
+
+    @Query("SELECT * FROM list_items")
+    suspend fun getAll(): List<ListItemEntity>
 
     @Query("DELETE FROM list_items")
     suspend fun deleteAll()

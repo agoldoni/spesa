@@ -20,5 +20,6 @@ import androidx.room.PrimaryKey
 data class FavoriteEntity(
     @PrimaryKey val id: String,
     val productId: String,
-    val ordering: Int
+    val ordering: Int,
+    val updatedAt: Long = System.currentTimeMillis()
 )

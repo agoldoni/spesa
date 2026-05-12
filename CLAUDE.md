@@ -21,10 +21,10 @@ There are no tests configured in this project.
 Single-module Android app (`app/`) using MVVM with Jetpack Compose. Package: `it.agoldoni.spesa`.
 
 **Layers:**
-- **`data/`** — Room database (`spesa.db`) with four entities: `MemberEntity`, `ProductEntity`, `ListItemEntity`, `FavoriteEntity`. Schema is at version 1. All entities use String UUID primary keys to keep parity with Firebase keys. `SpesaRepository` is the only write path: it owns the dedup logic ("adding a product already in the list increments its quantity"), the favorites toggle, and mirrors every change to the configured `SyncSource`. `ActiveMemberStore` persists the currently-selected member identity in `SharedPreferences`.
-- **`sync/`** — `SyncSource` interface with two implementations: `LocalOnlySyncSource` (no-op, used when Firebase is not configured) and `FirebaseSyncSource` (Realtime Database under `/spesa/default/{members,products,list_items,favorites}`). The DI module picks the impl based on `BuildConfig.FIREBASE_ENABLED`, which is wired automatically based on the presence of `app/google-services.json` at build time.
-- **`di/`** — Hilt `@SingletonComponent` module providing `AppDatabase`, the four DAOs and the `SyncSource`.
-- **`ui/`** — Single Compose screen `ShoppingScreen` with one `ShoppingViewModel`. Components: `MemberAvatar`, `QuantityStepper`, `FavoriteChip`. Theme uses Material 3 with primary `#1D9E75`.
+- **`data/`** — Room database (`spesa.db`) with four entities: `MemberEntity`, `ProductEntity`, `ListItemEntity`, `FavoriteEntity`. Schema is at version 2. All entities use String UUID primary keys and an `updatedAt: Long` (epoch ms) used by the sync layer for last-write-wins conflict resolution. The DB is wired with `fallbackToDestructiveMigration()` — schema bumps drop the local data. `SpesaRepository` is the only write path: it owns the dedup logic ("adding a product already in the list increments its quantity"), the favorites toggle, refreshes `updatedAt` on every mutation and mirrors every change to the `SyncSource`. `ActiveMemberStore` persists the currently-selected member identity in `SharedPreferences`.
+- **`sync/`** — `SyncSource` interface with one implementation, `MqttSyncSource` (HiveMQ Mqtt3 client). When `MqttConfig.isConfigured` is false the source stays disconnected and all push/delete calls are no-ops. Topics live under `sync/{groupId}/{members,products,list_items,favorites}/{id}`; messages are JSON-serialized entities (Gson) published with `retain=true`, while a delete is signaled by an empty payload on the same retained topic. Conflict resolution is last-write-wins via `updatedAt`. On connect the client subscribes to all four topic filters and republishes its full local state so other clients converge. `MqttConfig` persists broker host/port/credentials/groupId/TLS in `SharedPreferences` (`mqtt_config`).
+- **`di/`** — Hilt `@SingletonComponent` module providing `AppDatabase`, the four DAOs and the `SyncSource` (always `MqttSyncSource`).
+- **`ui/`** — Single Compose screen `ShoppingScreen` with one `ShoppingViewModel`. The header includes a gear icon that opens `MqttConfigActivity` (Compose Activity) for editing broker settings; saving the config calls `SyncSource.reconnectIfNeeded()`. Components: `MemberAvatar`, `QuantityStepper`, `FavoriteChip`. Theme uses Material 3 with primary `#1D9E75`.
 
 **Key conventions:**
 - UI language is Italian throughout (labels, dates, pluralization).
@@ -36,17 +36,17 @@ Single-module Android app (`app/`) using MVVM with Jetpack Compose. Package: `it
 - Dependencies are managed via version catalog in `gradle/libs.versions.toml`.
 - Java 17 source/target compatibility, Kotlin 2.0, KSP for Room and Hilt code generation.
 
-## Firebase setup (optional)
+## MQTT sync (opt-in at runtime)
 
-The Firebase RTDB sync is opt-in. To enable it, drop a valid `app/google-services.json` (download from the Firebase console for app id `it.agoldoni.spesa` or `it.agoldoni.spesa.debug`) into `app/`. The Gradle script detects the file's presence and:
-1. Applies the `com.google.gms.google-services` plugin
-2. Sets `BuildConfig.FIREBASE_ENABLED = true` so Hilt provides `FirebaseSyncSource` instead of the no-op
-3. `app/google-services.json` is gitignored — never committed
+The sync layer is configured at runtime via the gear icon in the header (`MqttConfigActivity`). Required fields: broker host, port (default 8883), group id, TLS toggle; optional: username/password. The toggle "Sincronizzazione attiva" must be on. After saving, the client (re)connects and:
+1. Subscribes to `sync/{groupId}/{kind}/#` for every `kind ∈ {members, products, list_items, favorites}`.
+2. Republishes every local entity to its retained topic so freshly-joined peers converge.
+3. Routes incoming messages through last-write-wins on `updatedAt`. Empty retained payloads are interpreted as delete signals.
 
-Without the file, the app builds and runs local-only.
+Multiple installations sharing the same `groupId` (and pointing at the same broker) automatically synchronize members, products, list items and favorites in real time.
 
 ## Future work
 
 - Drag & drop reordering of favorite chips (currently order is insertion order; reorder is exposed via `SpesaRepository.reorderFavorites` but no UI affordance yet).
-- Multi-household support (currently the Firebase root is hardcoded to `spesa/default`).
-- Authentication / per-user RTDB rules (current schema assumes the database is private to the household).
+- Stable per-install MQTT client identifier (currently a fresh UUID per session — fine for retained topics but breaks `cleanSession=false` semantics).
+- Authentication / per-broker ACLs scoped to `groupId` (today the broker is trusted to enforce isolation).

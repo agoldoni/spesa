@@ -48,6 +48,40 @@ Oppure direttamente con Gradle:
 ./install-all.sh --run     # Installa e avvia l'app
 ```
 
+## Emulatore e dispositivi
+
+```bash
+# Elenca i dispositivi/emulatori connessi
+adb devices -l
+
+# Elenca gli AVD (Android Virtual Device) configurati
+emulator -list-avds
+
+# Avvia un emulatore per nome
+emulator -avd <nome_avd>
+
+# Avvia un emulatore in background, senza audio e con wipe dei dati
+emulator -avd <nome_avd> -no-audio -wipe-data &
+
+# Termina tutti gli emulatori in esecuzione
+adb emu kill
+
+# Disinstalla l'app debug da un dispositivo specifico
+adb -s <device_id> uninstall it.agoldoni.spesa.debug
+```
+
+### Clipboard nell'emulatore
+
+```bash
+# Inietta testo nel campo focalizzato (occhio agli spazi: %s)
+adb shell input text "broker.example.com"
+
+# Imposta direttamente la clipboard dell'emulatore (poi long-press → Incolla)
+adb shell cmd clipboard set-text "username-segreto"
+```
+
+In alternativa, dalla finestra dell'emulatore di Android Studio è attivo di default lo *clipboard sharing* tra host e VM (Ctrl+C / Ctrl+V). Se non funziona: `…` (Extended controls) → **Settings** → **Enable clipboard sharing**.
+
 ## Sincronizzazione Firebase (opzionale)
 
 L'app funziona out-of-the-box in modalità solo-locale. Per attivare la
