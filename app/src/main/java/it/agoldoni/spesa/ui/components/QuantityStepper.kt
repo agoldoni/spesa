@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -31,7 +32,8 @@ fun QuantityStepper(
     quantity: Int,
     onDecrement: () -> Unit,
     onIncrement: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    testTagPrefix: String = ""
 ) {
     val shape = RoundedCornerShape(8.dp)
     val canDecrement = quantity > 1
@@ -43,7 +45,7 @@ fun QuantityStepper(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Start
     ) {
-        StepperButton(enabled = canDecrement, onClick = onDecrement) {
+        StepperButton(enabled = canDecrement, onClick = onDecrement, testTag = "${testTagPrefix}stepper_minus") {
             Icon(
                 Icons.Default.Remove,
                 contentDescription = "Diminuisci",
@@ -53,7 +55,7 @@ fun QuantityStepper(
             )
         }
         Box(
-            modifier = Modifier.width(28.dp).height(32.dp),
+            modifier = Modifier.width(28.dp).height(32.dp).testTag("${testTagPrefix}stepper_qty"),
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -63,7 +65,7 @@ fun QuantityStepper(
                 textAlign = TextAlign.Center
             )
         }
-        StepperButton(enabled = true, onClick = onIncrement) {
+        StepperButton(enabled = true, onClick = onIncrement, testTag = "${testTagPrefix}stepper_plus") {
             Icon(
                 Icons.Default.Add,
                 contentDescription = "Aumenta",
@@ -78,12 +80,14 @@ fun QuantityStepper(
 private fun StepperButton(
     enabled: Boolean,
     onClick: () -> Unit,
+    testTag: String = "",
     content: @Composable () -> Unit
 ) {
     Box(
         modifier = Modifier
             .size(32.dp)
             .background(Color.Transparent)
+            .let { if (testTag.isNotEmpty()) it.testTag(testTag) else it }
             .let { if (enabled) it.clickable(onClick = onClick) else it },
         contentAlignment = Alignment.Center,
         content = { content() }

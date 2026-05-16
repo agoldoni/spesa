@@ -69,6 +69,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -204,7 +205,7 @@ private fun Header(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
-            IconButton(onClick = onToggleTheme, modifier = Modifier.size(34.dp)) {
+            IconButton(onClick = onToggleTheme, modifier = Modifier.size(34.dp).testTag("btn_toggle_tema")) {
                 Icon(
                     imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
                     contentDescription = if (isDark) "Passa a tema chiaro" else "Passa a tema scuro",
@@ -212,7 +213,7 @@ private fun Header(
                 )
             }
             Spacer(Modifier.width(4.dp))
-            IconButton(onClick = onOpenReparti, modifier = Modifier.size(34.dp)) {
+            IconButton(onClick = onOpenReparti, modifier = Modifier.size(34.dp).testTag("btn_reparti")) {
                 Icon(
                     Icons.Default.Store,
                     contentDescription = "Gestione reparti",
@@ -220,7 +221,7 @@ private fun Header(
                 )
             }
             Spacer(Modifier.width(4.dp))
-            IconButton(onClick = onOpenSettings, modifier = Modifier.size(34.dp)) {
+            IconButton(onClick = onOpenSettings, modifier = Modifier.size(34.dp).testTag("btn_impostazioni")) {
                 Icon(
                     Icons.Default.Settings,
                     contentDescription = "Configurazione MQTT",
@@ -256,7 +257,8 @@ private fun FavoritesRow(
         items(favorites, key = { it.favoriteId }) { fav ->
             FavoriteChip(
                 label = fav.productName,
-                onClick = { onPick(fav.productId) }
+                onClick = { onPick(fav.productId) },
+                modifier = Modifier.testTag("chip_preferito_${fav.productName}")
             )
         }
     }
@@ -285,7 +287,8 @@ private fun AddBar(
                 onValueChange = onValueChange,
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .testTag("input_nome_prodotto"),
                 placeholder = { Text("Aggiungi prodotto…") },
                 singleLine = true,
                 shape = RoundedCornerShape(8.dp),
@@ -305,6 +308,7 @@ private fun AddBar(
                     .size(48.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(MaterialTheme.colorScheme.primary)
+                    .testTag("btn_aggiungi_prodotto")
                     .clickable {
                         onSubmit()
                         focusRequester.requestFocus()
@@ -333,6 +337,7 @@ private fun AddBar(
                             style = MaterialTheme.typography.bodyMedium,
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .testTag("suggestion_${product.name}")
                                 .clickable {
                                     onPickSuggestion(product)
                                     keyboard?.hide()
@@ -435,10 +440,11 @@ private fun ItemRow(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .testTag("item_${row.itemId}"),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onToggleFavorite, modifier = Modifier.size(36.dp)) {
+        IconButton(onClick = onToggleFavorite, modifier = Modifier.size(36.dp).testTag("btn_preferito_${row.itemId}")) {
             Icon(
                 imageVector = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
                 contentDescription = if (isFavorite) "Rimuovi dai preferiti" else "Aggiungi ai preferiti",
@@ -465,6 +471,7 @@ private fun ItemRow(
                                 MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
                                 RoundedCornerShape(4.dp)
                             )
+                            .testTag("btn_reparto_${row.itemId}")
                             .clickable { showDeptMenu = true }
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -518,7 +525,7 @@ private fun ItemRow(
             )
         }
         Spacer(Modifier.width(8.dp))
-        IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
+        IconButton(onClick = onRemove, modifier = Modifier.size(36.dp).testTag("btn_rimuovi_${row.itemId}")) {
             Icon(
                 Icons.Default.Delete,
                 contentDescription = "Rimuovi",
@@ -529,7 +536,8 @@ private fun ItemRow(
         QuantityStepper(
             quantity = row.quantity,
             onDecrement = onDecrement,
-            onIncrement = onIncrement
+            onIncrement = onIncrement,
+            testTagPrefix = "${row.itemId}_"
         )
     }
 }
@@ -561,6 +569,7 @@ private fun Footer(
                 modifier = Modifier
                     .weight(1f)
                     .padding(horizontal = 6.dp)
+                    .testTag("btn_termina")
             ) {
                 Icon(
                     Icons.Default.DoneAll,
