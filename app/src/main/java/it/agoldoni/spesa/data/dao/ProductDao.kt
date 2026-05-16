@@ -23,4 +23,7 @@ interface ProductDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(product: ProductEntity)
+
+    @Query("UPDATE products SET departmentId = NULL WHERE departmentId = :departmentId")
+    suspend fun clearDepartment(departmentId: String)
 }

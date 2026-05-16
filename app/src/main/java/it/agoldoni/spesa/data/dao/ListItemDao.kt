@@ -14,7 +14,8 @@ interface ListItemDao {
         """
         SELECT li.id AS itemId, li.productId AS productId, p.name AS productName,
                li.quantity AS quantity, li.addedAt AS addedAt,
-               li.memberId AS memberId, m.name AS memberName, m.colorArgb AS memberColor
+               li.memberId AS memberId, m.name AS memberName, m.colorArgb AS memberColor,
+               p.departmentId AS departmentId
         FROM list_items li
         INNER JOIN products p ON p.id = li.productId
         LEFT JOIN members m ON m.id = li.memberId

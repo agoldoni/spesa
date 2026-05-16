@@ -91,4 +91,5 @@ dependencies {
 
     implementation(libs.hivemq.mqtt.client)
     implementation(libs.gson)
+    implementation(libs.reorderable)
 }

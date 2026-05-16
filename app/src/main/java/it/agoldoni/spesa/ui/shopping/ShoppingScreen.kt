@@ -2,6 +2,7 @@ package it.agoldoni.spesa.ui.shopping
 
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,12 +30,16 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Store
 import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
@@ -66,18 +71,21 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import it.agoldoni.spesa.data.entity.DepartmentEntity
 import it.agoldoni.spesa.data.entity.ProductEntity
 import it.agoldoni.spesa.data.relation.FavoriteWithProduct
 import it.agoldoni.spesa.data.relation.ListItemWithDetails
 import it.agoldoni.spesa.ui.MqttConfigActivity
 import it.agoldoni.spesa.ui.components.FavoriteChip
 import it.agoldoni.spesa.ui.components.QuantityStepper
+import it.agoldoni.spesa.ui.reparti.RepartiActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
-    val items by viewModel.items.collectAsState()
+    val shoppingGroups by viewModel.shoppingGroups.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
+    val departments by viewModel.departments.collectAsState()
     val itemCount by viewModel.itemCount.collectAsState()
     val totalQty by viewModel.totalQuantity.collectAsState()
     val input by viewModel.input.collectAsState()
@@ -114,6 +122,9 @@ fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
             Header(
                 onOpenSettings = {
                     context.startActivity(Intent(context, MqttConfigActivity::class.java))
+                },
+                onOpenReparti = {
+                    context.startActivity(Intent(context, RepartiActivity::class.java))
                 }
             )
         },
@@ -146,12 +157,14 @@ fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outline, thickness = 0.5.dp)
             ItemsList(
-                items = items,
+                groups = shoppingGroups,
                 favoriteIds = favoriteProductIds,
+                departments = departments,
                 onIncrement = viewModel::increment,
                 onDecrement = viewModel::decrement,
                 onRemove = viewModel::remove,
                 onToggleFavorite = viewModel::toggleFavorite,
+                onSetDepartment = viewModel::setProductDepartment,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -159,7 +172,7 @@ fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun Header(onOpenSettings: () -> Unit) {
+private fun Header(onOpenSettings: () -> Unit, onOpenReparti: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -177,6 +190,14 @@ private fun Header(onOpenSettings: () -> Unit) {
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = onOpenReparti, modifier = Modifier.size(34.dp)) {
+                Icon(
+                    Icons.Default.Store,
+                    contentDescription = "Gestione reparti",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+            Spacer(Modifier.width(4.dp))
             IconButton(onClick = onOpenSettings, modifier = Modifier.size(34.dp)) {
                 Icon(
                     Icons.Default.Settings,
@@ -303,17 +324,21 @@ private fun AddBar(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ItemsList(
-    items: List<ListItemWithDetails>,
+    groups: List<ShoppingGroup>,
     favoriteIds: Set<String>,
+    departments: List<DepartmentEntity>,
     onIncrement: (String) -> Unit,
     onDecrement: (String) -> Unit,
     onRemove: (String) -> Unit,
     onToggleFavorite: (String) -> Unit,
+    onSetDepartment: (productId: String, departmentId: String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (items.isEmpty()) {
+    val allItems = groups.flatMap { it.items }
+    if (allItems.isEmpty()) {
         Box(
             modifier = modifier.padding(24.dp),
             contentAlignment = Alignment.Center
@@ -326,21 +351,48 @@ private fun ItemsList(
         }
         return
     }
+
+    val showHeaders = groups.any { it.departmentId != null }
+
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        items(items, key = { it.itemId }) { row ->
-            ItemRow(
-                row = row,
-                isFavorite = row.productId in favoriteIds,
-                onIncrement = { onIncrement(row.itemId) },
-                onDecrement = { onDecrement(row.itemId) },
-                onRemove = { onRemove(row.itemId) },
-                onToggleFavorite = { onToggleFavorite(row.productId) }
-            )
-            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), thickness = 0.5.dp)
+        groups.forEach { group ->
+            if (showHeaders) {
+                stickyHeader(key = "hdr_${group.departmentId ?: "__none__"}") {
+                    DepartmentHeader(name = group.departmentName ?: "Senza reparto")
+                }
+            }
+            items(group.items, key = { it.itemId }) { row ->
+                ItemRow(
+                    row = row,
+                    isFavorite = row.productId in favoriteIds,
+                    departments = departments,
+                    onIncrement = { onIncrement(row.itemId) },
+                    onDecrement = { onDecrement(row.itemId) },
+                    onRemove = { onRemove(row.itemId) },
+                    onToggleFavorite = { onToggleFavorite(row.productId) },
+                    onSetDepartment = { deptId -> onSetDepartment(row.productId, deptId) }
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.6f), thickness = 0.5.dp)
+            }
         }
+    }
+}
+
+@Composable
+private fun DepartmentHeader(name: String) {
+    Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+        Text(
+            text = name,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+        )
     }
 }
 
@@ -348,11 +400,15 @@ private fun ItemsList(
 private fun ItemRow(
     row: ListItemWithDetails,
     isFavorite: Boolean,
+    departments: List<DepartmentEntity>,
     onIncrement: () -> Unit,
     onDecrement: () -> Unit,
     onRemove: () -> Unit,
-    onToggleFavorite: () -> Unit
+    onToggleFavorite: () -> Unit,
+    onSetDepartment: (String?) -> Unit
 ) {
+    var showDeptMenu by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -368,13 +424,66 @@ private fun ItemRow(
                 else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        Text(
-            text = row.productName,
-            style = MaterialTheme.typography.bodyLarge,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = row.productName,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (departments.isNotEmpty()) {
+                val deptName = departments.find { it.id == row.departmentId }?.name
+                Box {
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .border(
+                                0.5.dp,
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                RoundedCornerShape(4.dp)
+                            )
+                            .clickable { showDeptMenu = true }
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = deptName ?: "—",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (deptName != null) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Icon(
+                            Icons.Default.ArrowDropDown,
+                            contentDescription = "Cambia reparto",
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showDeptMenu,
+                        onDismissRequest = { showDeptMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("— Nessun reparto") },
+                            onClick = {
+                                onSetDepartment(null)
+                                showDeptMenu = false
+                            }
+                        )
+                        departments.forEach { dept ->
+                            DropdownMenuItem(
+                                text = { Text(dept.name) },
+                                onClick = {
+                                    onSetDepartment(dept.id)
+                                    showDeptMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
         if (row.memberId != null && row.memberName != null && row.memberColor != null) {
             Spacer(Modifier.width(8.dp))
             Text(

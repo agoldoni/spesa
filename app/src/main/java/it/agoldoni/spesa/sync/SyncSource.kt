@@ -1,5 +1,6 @@
 package it.agoldoni.spesa.sync
 
+import it.agoldoni.spesa.data.entity.DepartmentEntity
 import it.agoldoni.spesa.data.entity.FavoriteEntity
 import it.agoldoni.spesa.data.entity.ListItemEntity
 import it.agoldoni.spesa.data.entity.MemberEntity
@@ -17,4 +18,6 @@ interface SyncSource {
     suspend fun deleteListItem(id: String)
     suspend fun pushFavorite(favorite: FavoriteEntity)
     suspend fun deleteFavorite(id: String)
+    suspend fun pushDepartment(department: DepartmentEntity)
+    suspend fun deleteDepartment(id: String)
 }

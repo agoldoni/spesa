@@ -1,6 +1,7 @@
 package it.agoldoni.spesa.data.repository
 
 import it.agoldoni.spesa.data.AppDatabase
+import it.agoldoni.spesa.data.entity.DepartmentEntity
 import it.agoldoni.spesa.data.entity.FavoriteEntity
 import it.agoldoni.spesa.data.entity.ListItemEntity
 import it.agoldoni.spesa.data.entity.MemberEntity
@@ -32,6 +33,7 @@ class SpesaRepository @Inject constructor(
     fun observeTotalQuantity(): Flow<Int> = db.listItemDao().observeTotalQuantity()
     fun observeSuggestions(prefix: String): Flow<List<ProductEntity>> =
         db.productDao().observeSuggestions(prefix.lowercase(Locale.ROOT))
+    fun observeDepartments(): Flow<List<DepartmentEntity>> = db.departmentDao().observeAll()
 
     /**
      * Ensures a [MemberEntity] exists for the given username. The member id is the
@@ -164,6 +166,51 @@ class SpesaRepository @Inject constructor(
             db.favoriteDao().upsert(updated)
             mirror { sync.pushFavorite(updated) }
         }
+    }
+
+    // --- Departments ---
+
+    suspend fun addDepartment(name: String) {
+        val position = db.departmentDao().getAll().size
+        val dept = DepartmentEntity(
+            id = UUID.randomUUID().toString(),
+            name = name.trim(),
+            position = position,
+            updatedAt = System.currentTimeMillis()
+        )
+        db.departmentDao().upsert(dept)
+        mirror { sync.pushDepartment(dept) }
+    }
+
+    suspend fun renameDepartment(id: String, newName: String) {
+        val dept = db.departmentDao().getById(id) ?: return
+        val updated = dept.copy(name = newName.trim(), updatedAt = System.currentTimeMillis())
+        db.departmentDao().upsert(updated)
+        mirror { sync.pushDepartment(updated) }
+    }
+
+    suspend fun deleteDepartment(id: String) {
+        // Clear association on all products before deleting the department
+        db.productDao().clearDepartment(id)
+        db.departmentDao().deleteById(id)
+        mirror { sync.deleteDepartment(id) }
+    }
+
+    suspend fun reorderDepartments(orderedIds: List<String>) {
+        val now = System.currentTimeMillis()
+        orderedIds.forEachIndexed { index, id ->
+            val current = db.departmentDao().getById(id) ?: return@forEachIndexed
+            val updated = current.copy(position = index, updatedAt = now)
+            db.departmentDao().upsert(updated)
+            mirror { sync.pushDepartment(updated) }
+        }
+    }
+
+    suspend fun setProductDepartment(productId: String, departmentId: String?) {
+        val product = db.productDao().getById(productId) ?: return
+        val updated = product.copy(departmentId = departmentId, updatedAt = System.currentTimeMillis())
+        db.productDao().upsert(updated)
+        mirror { sync.pushProduct(updated) }
     }
 
     private suspend fun ensureProduct(name: String): ProductEntity {

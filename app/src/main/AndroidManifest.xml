@@ -29,6 +29,12 @@
             android:label="Configurazione MQTT"
             android:theme="@style/Theme.Spesa" />
 
+        <activity
+            android:name=".ui.reparti.RepartiActivity"
+            android:exported="false"
+            android:label="Reparti"
+            android:theme="@style/Theme.Spesa" />
+
     </application>
 
 </manifest>

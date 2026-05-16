@@ -6,6 +6,7 @@ import com.hivemq.client.mqtt.MqttClient
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import com.hivemq.client.mqtt.mqtt3.message.publish.Mqtt3Publish
 import it.agoldoni.spesa.data.AppDatabase
+import it.agoldoni.spesa.data.entity.DepartmentEntity
 import it.agoldoni.spesa.data.entity.FavoriteEntity
 import it.agoldoni.spesa.data.entity.ListItemEntity
 import it.agoldoni.spesa.data.entity.MemberEntity
@@ -130,6 +131,7 @@ class MqttSyncSource @Inject constructor(
                     when (kind) {
                         KIND_LIST_ITEMS -> db.listItemDao().deleteById(id)
                         KIND_FAVORITES -> db.favoriteDao().deleteById(id)
+                        KIND_DEPARTMENTS -> db.departmentDao().deleteById(id)
                     }
                     return@launch
                 }
@@ -139,6 +141,7 @@ class MqttSyncSource @Inject constructor(
                     KIND_PRODUCTS -> handleProduct(json)
                     KIND_LIST_ITEMS -> handleListItem(json)
                     KIND_FAVORITES -> handleFavorite(json)
+                    KIND_DEPARTMENTS -> handleDepartment(json)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error handling incoming message", e)
@@ -178,6 +181,12 @@ class MqttSyncSource @Inject constructor(
         if (local == null || remote.updatedAt > local.updatedAt) db.favoriteDao().upsert(remote)
     }
 
+    private suspend fun handleDepartment(json: String) {
+        val remote = gson.fromJson(json, DepartmentEntity::class.java)
+        val local = db.departmentDao().getById(remote.id)
+        if (local == null || remote.updatedAt > local.updatedAt) db.departmentDao().upsert(remote)
+    }
+
     private suspend fun publishAll() {
         if (!connected || client == null) return
         try {
@@ -185,6 +194,7 @@ class MqttSyncSource @Inject constructor(
             db.productDao().getAll().forEach { publishEntity(KIND_PRODUCTS, it.id, it) }
             db.listItemDao().getAll().forEach { publishEntity(KIND_LIST_ITEMS, it.id, it) }
             db.favoriteDao().getAll().forEach { publishEntity(KIND_FAVORITES, it.id, it) }
+            db.departmentDao().getAll().forEach { publishEntity(KIND_DEPARTMENTS, it.id, it) }
             Log.i(TAG, "Full sync published")
         } catch (e: Exception) {
             Log.e(TAG, "Full sync failed", e)
@@ -203,8 +213,12 @@ class MqttSyncSource @Inject constructor(
     override suspend fun pushFavorite(favorite: FavoriteEntity) =
         publishEntity(KIND_FAVORITES, favorite.id, favorite)
 
+    override suspend fun pushDepartment(department: DepartmentEntity) =
+        publishEntity(KIND_DEPARTMENTS, department.id, department)
+
     override suspend fun deleteListItem(id: String) = publishDelete(KIND_LIST_ITEMS, id)
     override suspend fun deleteFavorite(id: String) = publishDelete(KIND_FAVORITES, id)
+    override suspend fun deleteDepartment(id: String) = publishDelete(KIND_DEPARTMENTS, id)
 
     private fun publishEntity(kind: String, id: String, entity: Any) {
         val c = client ?: return
@@ -243,6 +257,7 @@ class MqttSyncSource @Inject constructor(
         private const val KIND_PRODUCTS = "products"
         private const val KIND_LIST_ITEMS = "list_items"
         private const val KIND_FAVORITES = "favorites"
-        private val KINDS = listOf(KIND_MEMBERS, KIND_PRODUCTS, KIND_LIST_ITEMS, KIND_FAVORITES)
+        private const val KIND_DEPARTMENTS = "departments"
+        private val KINDS = listOf(KIND_MEMBERS, KIND_PRODUCTS, KIND_LIST_ITEMS, KIND_FAVORITES, KIND_DEPARTMENTS)
     }
 }

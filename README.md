@@ -10,34 +10,27 @@ App Android per la lista della spesa condivisa tra più membri della famiglia.
 - Aggiungere un prodotto già presente incrementa la quantità invece di duplicarlo
 - Avatar colorato che indica il membro della famiglia che ha aggiunto la voce
 - Contatori live: numero di prodotti e somma dei pezzi totali
-- Sincronizzazione opzionale tra dispositivi via Firebase Realtime Database
+- Sincronizzazione opzionale tra dispositivi via MQTT (broker configurabile a runtime)
 
 ## Tech Stack
 
-- **Kotlin** 2.0.21
+- **Kotlin** 2.0 + **KSP** per la code generation
 - **Jetpack Compose** + Material 3
 - **Architettura** MVVM + Repository pattern
-- **Room** per la persistenza locale (SQLite)
+- **Room** per la persistenza locale (SQLite, schema v2)
 - **Hilt** per la dependency injection
 - **Coroutines + Flow** per la reattività
-- **Firebase Realtime Database** (opzionale) per la sincronizzazione multi-device
-- Android API 26+ (minSdk 26, targetSdk 34, compileSdk 35)
+- **HiveMQ Mqtt3 Client** (opzionale) per la sincronizzazione multi-device
+- Android API 26+ (minSdk 26, targetSdk 34, compileSdk 35), Java 17
 
 ## Build
 
 Requisiti: Android SDK, Java 17.
 
 ```bash
-./build.sh debug      # Build debug
-./build.sh release    # Build release (richiede keystore configurato)
-./build.sh clean
-```
-
-Oppure direttamente con Gradle:
-
-```bash
-./gradlew assembleDebug
-./gradlew assembleRelease
+./gradlew assembleDebug          # Build debug APK
+./gradlew assembleRelease        # Build release APK (richiede variabili d'ambiente)
+./gradlew clean                  # Pulisce gli artefatti
 ```
 
 ## Installazione
@@ -45,8 +38,16 @@ Oppure direttamente con Gradle:
 ```bash
 ./install-all.sh           # Installa l'APK debug su tutti i dispositivi connessi
 ./install-all.sh --build   # Build + installazione
-./install-all.sh --run     # Installa e avvia l'app
 ```
+
+## Configurazione Release
+
+| Variabile | Descrizione | Default |
+|---|---|---|
+| `KEYSTORE_FILE` | Percorso del keystore | `~/.android/release-key.jks` |
+| `KEYSTORE_PASSWORD` | Password del keystore | — |
+| `KEY_ALIAS` | Alias della chiave | `release` |
+| `KEY_PASSWORD` | Password della chiave | — |
 
 ## Emulatore e dispositivi
 
@@ -82,38 +83,33 @@ adb shell cmd clipboard set-text "username-segreto"
 
 In alternativa, dalla finestra dell'emulatore di Android Studio è attivo di default lo *clipboard sharing* tra host e VM (Ctrl+C / Ctrl+V). Se non funziona: `…` (Extended controls) → **Settings** → **Enable clipboard sharing**.
 
-## Sincronizzazione Firebase (opzionale)
+## Sincronizzazione MQTT (opzionale)
 
-L'app funziona out-of-the-box in modalità solo-locale. Per attivare la
-sincronizzazione real-time tra dispositivi:
+L'app funziona out-of-the-box in modalità solo-locale. Per attivare la sincronizzazione real-time tra dispositivi, tocca l'icona ingranaggio nell'header e compila i campi:
 
-1. Crea un progetto Firebase su https://console.firebase.google.com
-2. Aggiungi un'app Android con package `it.agoldoni.spesa` (o `it.agoldoni.spesa.debug` per il build debug)
-3. Abilita Realtime Database nelle regole `read: true, write: true` (o regole più stringenti se autenticato)
-4. Scarica `google-services.json` e copialo in `app/google-services.json`
-5. Ricompila
+| Campo | Descrizione |
+|---|---|
+| Broker host | Hostname o IP del broker MQTT |
+| Porta | Default `8883` |
+| Group ID | Identificatore condiviso tra i dispositivi da sincronizzare |
+| TLS | Abilita la connessione cifrata |
+| Username / Password | Opzionali, dipende dalla configurazione del broker |
 
-Quando `app/google-services.json` esiste, il plugin Google Services viene applicato
-automaticamente e `BuildConfig.FIREBASE_ENABLED` diventa `true`.
-Il file è in `.gitignore` e non viene mai committato.
+Attiva il toggle **Sincronizzazione attiva** e salva. Dopo la connessione, il client:
+1. Si iscrive ai topic `sync/{groupId}/{members,products,list_items,favorites}/#`
+2. Ripubblica lo stato locale completo (retained) per far convergere i peer già connessi
+3. Applica la conflict resolution **last-write-wins** tramite il campo `updatedAt`
 
-## Configurazione Release
-
-| Variabile | Descrizione | Default |
-|---|---|---|
-| `KEYSTORE_FILE` | Percorso del keystore | `~/.android/release-key.jks` |
-| `KEYSTORE_PASSWORD` | Password del keystore | — |
-| `KEY_ALIAS` | Alias della chiave | `release` |
-| `KEY_PASSWORD` | Password della chiave | — |
+Tutti i dispositivi che condividono lo stesso `groupId` e puntano allo stesso broker si sincronizzano automaticamente in tempo reale.
 
 ## Struttura del progetto
 
 ```
 app/src/main/java/it/agoldoni/spesa/
-├── data/        # Room: entità, DAO, database, repository
-├── sync/        # Astrazione SyncSource (LocalOnly + Firebase RTDB)
-├── di/          # Moduli Hilt
-└── ui/          # Schermata Compose, ViewModel, theme
+├── data/   # Room: entità, DAO, database, SpesaRepository
+├── sync/   # SyncSource interface + MqttSyncSource (HiveMQ)
+├── di/     # Moduli Hilt
+└── ui/     # ShoppingScreen, ShoppingViewModel, MqttConfigActivity, theme
 ```
 
 ## Licenza

@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import it.agoldoni.spesa.data.AppDatabase
+import it.agoldoni.spesa.data.dao.DepartmentDao
 import it.agoldoni.spesa.data.dao.FavoriteDao
 import it.agoldoni.spesa.data.dao.ListItemDao
 import it.agoldoni.spesa.data.dao.MemberDao
@@ -24,13 +25,14 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "spesa.db")
-            .fallbackToDestructiveMigration()
+            .addMigrations(AppDatabase.MIGRATION_2_3)
             .build()
 
     @Provides fun provideMemberDao(db: AppDatabase): MemberDao = db.memberDao()
     @Provides fun provideProductDao(db: AppDatabase): ProductDao = db.productDao()
     @Provides fun provideListItemDao(db: AppDatabase): ListItemDao = db.listItemDao()
     @Provides fun provideFavoriteDao(db: AppDatabase): FavoriteDao = db.favoriteDao()
+    @Provides fun provideDepartmentDao(db: AppDatabase): DepartmentDao = db.departmentDao()
 
     @Provides
     @Singleton

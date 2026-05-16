@@ -8,5 +8,6 @@ data class ListItemWithDetails(
     val addedAt: Long,
     val memberId: String?,
     val memberName: String?,
-    val memberColor: Long?
+    val memberColor: Long?,
+    val departmentId: String?
 )

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import it.agoldoni.spesa.data.ActiveMemberStore
+import it.agoldoni.spesa.data.entity.DepartmentEntity
 import it.agoldoni.spesa.data.entity.MemberEntity
 import it.agoldoni.spesa.data.entity.ProductEntity
 import it.agoldoni.spesa.data.relation.FavoriteWithProduct
@@ -15,11 +16,18 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+data class ShoppingGroup(
+    val departmentId: String?,
+    val departmentName: String?,
+    val items: List<ListItemWithDetails>
+)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -31,10 +39,10 @@ class ShoppingViewModel @Inject constructor(
     val members: StateFlow<List<MemberEntity>> = repo.observeMembers()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val items: StateFlow<List<ListItemWithDetails>> = repo.observeListItems()
+    val favorites: StateFlow<List<FavoriteWithProduct>> = repo.observeFavorites()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val favorites: StateFlow<List<FavoriteWithProduct>> = repo.observeFavorites()
+    val departments: StateFlow<List<DepartmentEntity>> = repo.observeDepartments()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val itemCount: StateFlow<Int> = repo.observeItemCount()
@@ -45,6 +53,13 @@ class ShoppingViewModel @Inject constructor(
 
     val activeMemberId: StateFlow<String?> = activeMember.observeActiveMemberId()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val shoppingGroups: StateFlow<List<ShoppingGroup>> = combine(
+        repo.observeListItems(),
+        repo.observeDepartments()
+    ) { items, depts ->
+        buildGroups(items, depts)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _input = MutableStateFlow("")
     val input: StateFlow<String> = _input.asStateFlow()
@@ -101,7 +116,35 @@ class ShoppingViewModel @Inject constructor(
         viewModelScope.launch { repo.reorderFavorites(orderedIds) }
     }
 
+    fun setProductDepartment(productId: String, departmentId: String?) {
+        viewModelScope.launch { repo.setProductDepartment(productId, departmentId) }
+    }
+
     fun clearAll() {
         viewModelScope.launch { repo.clearAll() }
+    }
+
+    private fun buildGroups(
+        items: List<ListItemWithDetails>,
+        departments: List<DepartmentEntity>
+    ): List<ShoppingGroup> {
+        val byDept = items.groupBy { it.departmentId }
+        val result = mutableListOf<ShoppingGroup>()
+
+        for (dept in departments) {
+            val deptItems = (byDept[dept.id] ?: emptyList())
+                .sortedBy { it.productName.lowercase() }
+            if (deptItems.isNotEmpty()) {
+                result.add(ShoppingGroup(dept.id, dept.name, deptItems))
+            }
+        }
+
+        val unassigned = (byDept[null] ?: emptyList())
+            .sortedBy { it.productName.lowercase() }
+        if (unassigned.isNotEmpty()) {
+            result.add(ShoppingGroup(null, null, unassigned))
+        }
+
+        return result
     }
 }
