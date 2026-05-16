@@ -518,12 +518,6 @@ private fun ItemRow(
             )
         }
         Spacer(Modifier.width(8.dp))
-        QuantityStepper(
-            quantity = row.quantity,
-            onDecrement = onDecrement,
-            onIncrement = onIncrement
-        )
-        Spacer(Modifier.width(4.dp))
         IconButton(onClick = onRemove, modifier = Modifier.size(36.dp)) {
             Icon(
                 Icons.Default.Delete,
@@ -531,6 +525,12 @@ private fun ItemRow(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+        Spacer(Modifier.width(4.dp))
+        QuantityStepper(
+            quantity = row.quantity,
+            onDecrement = onDecrement,
+            onIncrement = onIncrement
+        )
     }
 }
 
@@ -560,7 +560,7 @@ private fun Footer(
                 enabled = itemCount > 0,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 12.dp)
+                    .padding(horizontal = 6.dp)
             ) {
                 Icon(
                     Icons.Default.DoneAll,
@@ -584,4 +584,4 @@ private fun pluralizeProducts(n: Int): String =
     if (n == 1) "1 prodotto" else "$n prodotti"
 
 private fun pluralizePieces(n: Int): String =
-    if (n == 1) "1 pezzo totale" else "$n pezzi totali"
+    if (n == 1) "1 pz. totale" else "$n pz. totali"

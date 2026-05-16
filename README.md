@@ -27,6 +27,29 @@ App Android per la lista della spesa condivisa tra più membri della famiglia.
 
 Requisiti: Android SDK, Java 17.
 
+### Tramite `build.sh` (consigliato)
+
+```bash
+./build.sh                       # Build debug (default)
+./build.sh debug                 # Build debug APK
+./build.sh release               # Build release APK (richiede variabili d'ambiente)
+./build.sh clean                 # Pulisce gli artefatti
+```
+
+Per la build di release, esportare prima le variabili d'ambiente:
+
+```bash
+export KEYSTORE_FILE=~/.android/release-key.jks   # default, omettibile
+export KEYSTORE_PASSWORD=<password>
+export KEY_ALIAS=release                           # default, omettibile
+export KEY_PASSWORD=<password>
+./build.sh release
+```
+
+L'APK viene emesso in `app/build/outputs/apk/release/app-release.apk`.
+
+### Tramite Gradle direttamente
+
 ```bash
 ./gradlew assembleDebug          # Build debug APK
 ./gradlew assembleRelease        # Build release APK (richiede variabili d'ambiente)
