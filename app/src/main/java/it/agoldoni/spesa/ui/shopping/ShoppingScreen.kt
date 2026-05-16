@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -98,7 +99,7 @@ fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
     if (showClearConfirm) {
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
-            title = { Text("Termina spesa") },
+            title = { Text("Termina") },
             text = { Text("Vuoi davvero azzerare tutta la lista? L'operazione non è reversibile.") },
             confirmButton = {
                 TextButton(onClick = {
@@ -522,32 +523,23 @@ private fun Footer(
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline)
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = pluralizeProducts(itemCount),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                Text(
-                    text = pluralizePieces(totalQuantity),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = pluralizeProducts(itemCount),
+                style = MaterialTheme.typography.bodyMedium
+            )
             FilledTonalButton(
                 onClick = onClearClick,
                 enabled = itemCount > 0,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 12.dp)
+                    .weight(1f)
+                    .padding(horizontal = 12.dp)
             ) {
                 Icon(
                     Icons.Default.DoneAll,
@@ -555,8 +547,14 @@ private fun Footer(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(8.dp))
-                Text("Termina spesa")
+                Text("Termina")
             }
+            Text(
+                text = pluralizePieces(totalQuantity),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
