@@ -32,8 +32,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Store
@@ -83,7 +85,11 @@ import it.agoldoni.spesa.ui.reparti.RepartiActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
+fun ShoppingScreen(
+    isDark: Boolean = false,
+    onToggleTheme: () -> Unit = {},
+    viewModel: ShoppingViewModel = hiltViewModel()
+) {
     val shoppingGroups by viewModel.shoppingGroups.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
     val departments by viewModel.departments.collectAsState()
@@ -121,6 +127,8 @@ fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             Header(
+                isDark = isDark,
+                onToggleTheme = onToggleTheme,
                 onOpenSettings = {
                     context.startActivity(Intent(context, MqttConfigActivity::class.java))
                 },
@@ -173,7 +181,12 @@ fun ShoppingScreen(viewModel: ShoppingViewModel = hiltViewModel()) {
 }
 
 @Composable
-private fun Header(onOpenSettings: () -> Unit, onOpenReparti: () -> Unit) {
+private fun Header(
+    isDark: Boolean,
+    onToggleTheme: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenReparti: () -> Unit
+) {
     Surface(
         color = MaterialTheme.colorScheme.primary,
         contentColor = MaterialTheme.colorScheme.onPrimary
@@ -191,6 +204,14 @@ private fun Header(onOpenSettings: () -> Unit, onOpenReparti: () -> Unit) {
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
+            IconButton(onClick = onToggleTheme, modifier = Modifier.size(34.dp)) {
+                Icon(
+                    imageVector = if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
+                    contentDescription = if (isDark) "Passa a tema chiaro" else "Passa a tema scuro",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
+            }
+            Spacer(Modifier.width(4.dp))
             IconButton(onClick = onOpenReparti, modifier = Modifier.size(34.dp)) {
                 Icon(
                     Icons.Default.Store,

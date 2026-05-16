@@ -8,3 +8,7 @@ val SpesaGreenLight = Color(0xFFA6E0CB)
 val SpesaSurface = Color(0xFFFAFAFA)
 val SpesaOnSurface = Color(0xFF1B1B1B)
 val SpesaOutline = Color(0xFFE0E0E0)
+
+val SpesaSurfaceDark = Color(0xFF121212)
+val SpesaOnSurfaceDark = Color(0xFFE1E1E1)
+val SpesaOutlineDark = Color(0xFF3A3A3A)
