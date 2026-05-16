@@ -209,7 +209,7 @@ class SpesaRepository @Inject constructor(
     suspend fun setProductDepartment(productId: String, departmentId: String?) {
         val product = db.productDao().getById(productId) ?: return
         val updated = product.copy(departmentId = departmentId, updatedAt = System.currentTimeMillis())
-        db.productDao().upsert(updated)
+        db.productDao().update(updated)
         mirror { sync.pushProduct(updated) }
     }
 

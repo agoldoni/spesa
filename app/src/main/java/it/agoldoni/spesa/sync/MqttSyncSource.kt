@@ -158,7 +158,10 @@ class MqttSyncSource @Inject constructor(
     private suspend fun handleProduct(json: String) {
         val remote = gson.fromJson(json, ProductEntity::class.java)
         val local = db.productDao().getById(remote.id)
-        if (local == null || remote.updatedAt > local.updatedAt) db.productDao().upsert(remote)
+        when {
+            local == null -> db.productDao().upsert(remote)
+            remote.updatedAt > local.updatedAt -> db.productDao().update(remote)
+        }
     }
 
     private suspend fun handleListItem(json: String) {

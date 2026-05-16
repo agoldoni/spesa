@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Update
 import it.agoldoni.spesa.data.entity.ProductEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -23,6 +24,9 @@ interface ProductDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(product: ProductEntity)
+
+    @Update
+    suspend fun update(product: ProductEntity)
 
     @Query("UPDATE products SET departmentId = NULL WHERE departmentId = :departmentId")
     suspend fun clearDepartment(departmentId: String)
