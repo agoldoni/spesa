@@ -14,6 +14,7 @@ import it.agoldoni.spesa.data.entity.ProductEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -86,7 +87,9 @@ class MqttSyncSource @Inject constructor(
             Log.i(TAG, "MQTT connected")
 
             subscribeToTopics()
-            scope.launch { publishAll() }
+            // Delay to let retained messages (including delete signals) settle before
+            // republishing local state — avoids overwriting remote deletes on reconnect.
+            scope.launch { delay(2_000); publishAll() }
         } catch (e: Exception) {
             Log.e(TAG, "MQTT connection failed", e)
             connected = false
