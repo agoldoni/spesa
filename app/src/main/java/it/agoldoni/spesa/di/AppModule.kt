@@ -26,6 +26,7 @@ object AppModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "spesa.db")
             .addMigrations(AppDatabase.MIGRATION_2_3)
+            .fallbackToDestructiveMigration()
             .build()
 
     @Provides fun provideMemberDao(db: AppDatabase): MemberDao = db.memberDao()

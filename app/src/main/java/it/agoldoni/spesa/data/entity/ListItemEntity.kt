@@ -32,5 +32,6 @@ data class ListItemEntity(
     val quantity: Int,
     val memberId: String?,
     val addedAt: Long,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deleted: Boolean = false
 )

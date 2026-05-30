@@ -15,9 +15,6 @@ interface SyncSource {
     suspend fun pushMember(member: MemberEntity)
     suspend fun pushProduct(product: ProductEntity)
     suspend fun pushListItem(item: ListItemEntity)
-    suspend fun deleteListItem(id: String)
     suspend fun pushFavorite(favorite: FavoriteEntity)
-    suspend fun deleteFavorite(id: String)
     suspend fun pushDepartment(department: DepartmentEntity)
-    suspend fun deleteDepartment(id: String)
 }

@@ -17,6 +17,7 @@ interface FavoriteDao {
                p.name AS productName, f.ordering AS ordering
         FROM favorites f
         INNER JOIN products p ON p.id = f.productId
+        WHERE f.deleted = 0
         ORDER BY f.ordering ASC
         """
     )

@@ -23,7 +23,7 @@ import it.agoldoni.spesa.data.entity.ProductEntity
         FavoriteEntity::class,
         DepartmentEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

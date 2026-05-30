@@ -95,21 +95,36 @@ class SpesaRepository @Inject constructor(
     suspend fun addOrIncrement(productId: String, memberId: String?) {
         val now = System.currentTimeMillis()
         val existing = db.listItemDao().findByProduct(productId)
-        if (existing != null) {
-            val updated = existing.copy(quantity = existing.quantity + 1, updatedAt = now)
-            db.listItemDao().upsert(updated)
-            mirror { sync.pushListItem(updated) }
-        } else {
-            val item = ListItemEntity(
-                id = UUID.randomUUID().toString(),
-                productId = productId,
-                quantity = 1,
-                memberId = memberId,
-                addedAt = now,
-                updatedAt = now
-            )
-            db.listItemDao().upsert(item)
-            mirror { sync.pushListItem(item) }
+        when {
+            existing != null && existing.deleted -> {
+                // Revive a tombstoned item (the unique productId index forbids a new insert).
+                val revived = existing.copy(
+                    quantity = 1,
+                    memberId = memberId,
+                    addedAt = now,
+                    updatedAt = now,
+                    deleted = false
+                )
+                db.listItemDao().upsert(revived)
+                mirror { sync.pushListItem(revived) }
+            }
+            existing != null -> {
+                val updated = existing.copy(quantity = existing.quantity + 1, updatedAt = now)
+                db.listItemDao().upsert(updated)
+                mirror { sync.pushListItem(updated) }
+            }
+            else -> {
+                val item = ListItemEntity(
+                    id = UUID.randomUUID().toString(),
+                    productId = productId,
+                    quantity = 1,
+                    memberId = memberId,
+                    addedAt = now,
+                    updatedAt = now
+                )
+                db.listItemDao().upsert(item)
+                mirror { sync.pushListItem(item) }
+            }
         }
     }
 
@@ -129,29 +144,40 @@ class SpesaRepository @Inject constructor(
     }
 
     suspend fun remove(itemId: String) {
-        db.listItemDao().deleteById(itemId)
-        mirror { sync.deleteListItem(itemId) }
+        val item = db.listItemDao().getById(itemId) ?: return
+        val tombstone = item.copy(deleted = true, updatedAt = System.currentTimeMillis())
+        db.listItemDao().upsert(tombstone)
+        mirror { sync.pushListItem(tombstone) }
     }
 
     suspend fun clearAll() {
-        val ids = db.listItemDao().getAllIds()
-        db.listItemDao().deleteAll()
-        ids.forEach { id -> mirror { sync.deleteListItem(id) } }
+        val now = System.currentTimeMillis()
+        db.listItemDao().getAll().filterNot { it.deleted }.forEach { item ->
+            val tombstone = item.copy(deleted = true, updatedAt = now)
+            db.listItemDao().upsert(tombstone)
+            mirror { sync.pushListItem(tombstone) }
+        }
     }
 
     suspend fun toggleFavorite(productId: String) {
+        val now = System.currentTimeMillis()
         val all = db.favoriteDao().getAll()
-        val existing = all.firstOrNull { it.productId == productId }
-        if (existing != null) {
-            db.favoriteDao().deleteById(existing.id)
-            mirror { sync.deleteFavorite(existing.id) }
+        val existingLive = all.firstOrNull { it.productId == productId && !it.deleted }
+        if (existingLive != null) {
+            val tombstone = existingLive.copy(deleted = true, updatedAt = now)
+            db.favoriteDao().upsert(tombstone)
+            mirror { sync.pushFavorite(tombstone) }
         } else {
-            val fav = FavoriteEntity(
-                id = UUID.randomUUID().toString(),
-                productId = productId,
-                ordering = all.size,
-                updatedAt = System.currentTimeMillis()
-            )
+            val ordering = all.count { !it.deleted }
+            // Reuse a tombstoned row when present (the unique productId index forbids a new insert).
+            val existingTomb = all.firstOrNull { it.productId == productId }
+            val fav = existingTomb?.copy(ordering = ordering, updatedAt = now, deleted = false)
+                ?: FavoriteEntity(
+                    id = UUID.randomUUID().toString(),
+                    productId = productId,
+                    ordering = ordering,
+                    updatedAt = now
+                )
             db.favoriteDao().upsert(fav)
             mirror { sync.pushFavorite(fav) }
         }
@@ -171,7 +197,7 @@ class SpesaRepository @Inject constructor(
     // --- Departments ---
 
     suspend fun addDepartment(name: String) {
-        val position = db.departmentDao().getAll().size
+        val position = db.departmentDao().getAll().count { !it.deleted }
         val dept = DepartmentEntity(
             id = UUID.randomUUID().toString(),
             name = name.trim(),
@@ -192,8 +218,10 @@ class SpesaRepository @Inject constructor(
     suspend fun deleteDepartment(id: String) {
         // Clear association on all products before deleting the department
         db.productDao().clearDepartment(id)
-        db.departmentDao().deleteById(id)
-        mirror { sync.deleteDepartment(id) }
+        val dept = db.departmentDao().getById(id) ?: return
+        val tombstone = dept.copy(deleted = true, updatedAt = System.currentTimeMillis())
+        db.departmentDao().upsert(tombstone)
+        mirror { sync.pushDepartment(tombstone) }
     }
 
     suspend fun reorderDepartments(orderedIds: List<String>) {

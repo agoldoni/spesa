@@ -21,5 +21,6 @@ data class FavoriteEntity(
     @PrimaryKey val id: String,
     val productId: String,
     val ordering: Int,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deleted: Boolean = false
 )

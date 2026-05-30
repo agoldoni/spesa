@@ -19,6 +19,7 @@ interface ListItemDao {
         FROM list_items li
         INNER JOIN products p ON p.id = li.productId
         LEFT JOIN members m ON m.id = li.memberId
+        WHERE li.deleted = 0
         ORDER BY p.name COLLATE NOCASE ASC
         """
     )
@@ -39,7 +40,7 @@ interface ListItemDao {
     @Query("DELETE FROM list_items WHERE id = :id")
     suspend fun deleteById(id: String)
 
-    @Query("SELECT id FROM list_items")
+    @Query("SELECT id FROM list_items WHERE deleted = 0")
     suspend fun getAllIds(): List<String>
 
     @Query("SELECT * FROM list_items")
@@ -48,9 +49,9 @@ interface ListItemDao {
     @Query("DELETE FROM list_items")
     suspend fun deleteAll()
 
-    @Query("SELECT IFNULL(SUM(quantity), 0) FROM list_items")
+    @Query("SELECT IFNULL(SUM(quantity), 0) FROM list_items WHERE deleted = 0")
     fun observeTotalQuantity(): Flow<Int>
 
-    @Query("SELECT COUNT(*) FROM list_items")
+    @Query("SELECT COUNT(*) FROM list_items WHERE deleted = 0")
     fun observeItemCount(): Flow<Int>
 }

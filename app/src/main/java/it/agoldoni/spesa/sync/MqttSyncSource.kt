@@ -14,7 +14,6 @@ import it.agoldoni.spesa.data.entity.ProductEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -87,9 +86,11 @@ class MqttSyncSource @Inject constructor(
             Log.i(TAG, "MQTT connected")
 
             subscribeToTopics()
-            // Delay to let retained messages (including delete signals) settle before
-            // republishing local state — avoids overwriting remote deletes on reconnect.
-            scope.launch { delay(2_000); publishAll() }
+            // Republish local state so freshly-joined peers converge. Deletes are
+            // tombstones (deleted=true) carried by last-write-wins on updatedAt, so
+            // a stale republish can never resurrect a remotely-deleted entity — no
+            // ordering delay needed.
+            scope.launch { publishAll() }
         } catch (e: Exception) {
             Log.e(TAG, "MQTT connection failed", e)
             connected = false
@@ -222,10 +223,6 @@ class MqttSyncSource @Inject constructor(
     override suspend fun pushDepartment(department: DepartmentEntity) =
         publishEntity(KIND_DEPARTMENTS, department.id, department)
 
-    override suspend fun deleteListItem(id: String) = publishDelete(KIND_LIST_ITEMS, id)
-    override suspend fun deleteFavorite(id: String) = publishDelete(KIND_FAVORITES, id)
-    override suspend fun deleteDepartment(id: String) = publishDelete(KIND_DEPARTMENTS, id)
-
     private fun publishEntity(kind: String, id: String, entity: Any) {
         val c = client ?: return
         if (!connected) return
@@ -239,21 +236,6 @@ class MqttSyncSource @Inject constructor(
                 .send()
         } catch (e: Exception) {
             Log.e(TAG, "Publish $kind/$id failed", e)
-        }
-    }
-
-    private fun publishDelete(kind: String, id: String) {
-        val c = client ?: return
-        if (!connected) return
-        try {
-            val topic = "sync/${config.groupId}/$kind/$id"
-            c.publishWith()
-                .topic(topic)
-                .payload(ByteArray(0))
-                .retain(true)
-                .send()
-        } catch (e: Exception) {
-            Log.e(TAG, "Publish delete $kind/$id failed", e)
         }
     }
 

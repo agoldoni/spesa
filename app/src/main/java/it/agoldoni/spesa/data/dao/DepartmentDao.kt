@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DepartmentDao {
 
-    @Query("SELECT * FROM departments ORDER BY position ASC")
+    @Query("SELECT * FROM departments WHERE deleted = 0 ORDER BY position ASC")
     fun observeAll(): Flow<List<DepartmentEntity>>
 
     @Query("SELECT * FROM departments ORDER BY position ASC")

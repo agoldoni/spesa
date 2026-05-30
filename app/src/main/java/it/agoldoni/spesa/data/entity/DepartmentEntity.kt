@@ -8,5 +8,6 @@ data class DepartmentEntity(
     @PrimaryKey val id: String,
     val name: String,
     val position: Int,
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val deleted: Boolean = false
 )
