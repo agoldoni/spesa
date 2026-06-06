@@ -40,10 +40,12 @@ class MqttSyncSource @Inject constructor(
 
     override fun reconnectIfNeeded() {
         scope.launch {
-            if (config.isConfigured && !connected) {
+            // Always rebuild from scratch: this picks up broker/credential/group
+            // changes on save and recovers a client that got wedged. The automatic
+            // reconnect strategy handles transient drops on its own afterwards.
+            disconnectInternal()
+            if (config.isConfigured) {
                 connectInternal()
-            } else if (!config.isConfigured && connected) {
-                disconnectInternal()
             }
         }
     }
@@ -51,7 +53,7 @@ class MqttSyncSource @Inject constructor(
     override fun isConnected(): Boolean = connected
 
     private fun connectInternal() {
-        if (connected && client != null) return
+        if (client != null) return
 
         try {
             val builder = MqttClient.builder()
@@ -59,13 +61,20 @@ class MqttSyncSource @Inject constructor(
                 .identifier("spesa-${UUID.randomUUID().toString().substring(0, 8)}")
                 .serverHost(config.brokerUrl)
                 .serverPort(config.port)
+                // Survive transient network drops (wifi<->mobile, doze, broker hiccup):
+                // the client keeps retrying instead of silently staying dead.
+                .automaticReconnectWithDefaultConfig()
+                .addConnectedListener { onConnected() }
+                .addDisconnectedListener { onDisconnected() }
             if (config.useTls) builder.sslWithDefaultConfig()
 
             val c = builder.buildAsync()
+            // Assign before connecting so the connected listener can use it safely.
+            client = c
 
             val username = config.username
             val password = config.password
-            if (username.isNotEmpty()) {
+            val connect = if (username.isNotEmpty()) {
                 c.connectWith()
                     .cleanSession(false)
                     .simpleAuth()
@@ -73,29 +82,40 @@ class MqttSyncSource @Inject constructor(
                     .password(password.toByteArray(StandardCharsets.UTF_8))
                     .applySimpleAuth()
                     .send()
-                    .join()
             } else {
                 c.connectWith()
                     .cleanSession(false)
                     .send()
-                    .join()
             }
-
-            client = c
-            connected = true
-            Log.i(TAG, "MQTT connected")
-
-            subscribeToTopics()
-            // Republish local state so freshly-joined peers converge. Deletes are
-            // tombstones (deleted=true) carried by last-write-wins on updatedAt, so
-            // a stale republish can never resurrect a remotely-deleted entity — no
-            // ordering delay needed.
-            scope.launch { publishAll() }
+            connect.whenComplete { _, throwable ->
+                // On failure the automatic-reconnect strategy keeps retrying; the
+                // connected listener flips state once a connection succeeds.
+                if (throwable != null) Log.e(TAG, "Initial MQTT connect failed (will retry)", throwable)
+            }
         } catch (e: Exception) {
-            Log.e(TAG, "MQTT connection failed", e)
+            Log.e(TAG, "MQTT connection setup failed", e)
             connected = false
             client = null
         }
+    }
+
+    /**
+     * Runs on every (re)connection. Re-subscribes and republishes the full local
+     * state so peers converge after any reconnect, not just the first one.
+     */
+    private fun onConnected() {
+        connected = true
+        Log.i(TAG, "MQTT connected")
+        subscribeToTopics()
+        // Republish local state so freshly-joined peers converge. Deletes are
+        // tombstones (deleted=true) carried by last-write-wins on updatedAt, so
+        // a stale republish can never resurrect a remotely-deleted entity.
+        scope.launch { publishAll() }
+    }
+
+    private fun onDisconnected() {
+        connected = false
+        Log.w(TAG, "MQTT disconnected (auto-reconnect will retry)")
     }
 
     private fun disconnectInternal() {
