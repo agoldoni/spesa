@@ -15,6 +15,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 import javax.inject.Inject
@@ -31,6 +33,15 @@ class MqttSyncSource @Inject constructor(
 
     @Volatile private var client: Mqtt3AsyncClient? = null
     @Volatile private var connected = false
+
+    // Serializes incoming-message handling so the "is the product present?" check
+    // and the buffer/flush are atomic with respect to each other.
+    private val incomingLock = Mutex()
+    // list_items / favorites that arrived before their product (topics are delivered
+    // in arbitrary order across retained messages); keyed by productId and replayed
+    // once the product shows up. Accessed only under [incomingLock].
+    private val pendingItems = HashMap<String, MutableList<String>>()
+    private val pendingFavorites = HashMap<String, MutableList<String>>()
 
     override fun start() = reconnectIfNeeded()
 
@@ -147,29 +158,43 @@ class MqttSyncSource @Inject constructor(
 
     private fun handleIncoming(publish: Mqtt3Publish, kind: String) {
         scope.launch {
-            try {
-                val topic = publish.topic.toString()
-                val id = topic.substringAfterLast('/')
-                val payload = publish.payloadAsBytes
-                if (payload.isEmpty()) {
-                    when (kind) {
-                        KIND_LIST_ITEMS -> db.listItemDao().deleteById(id)
-                        KIND_FAVORITES -> db.favoriteDao().deleteById(id)
-                        KIND_DEPARTMENTS -> db.departmentDao().deleteById(id)
+            incomingLock.withLock {
+                try {
+                    val topic = publish.topic.toString()
+                    val id = topic.substringAfterLast('/')
+                    val payload = publish.payloadAsBytes
+                    if (payload.isEmpty()) {
+                        when (kind) {
+                            KIND_LIST_ITEMS -> db.listItemDao().deleteById(id)
+                            KIND_FAVORITES -> db.favoriteDao().deleteById(id)
+                            KIND_DEPARTMENTS -> db.departmentDao().deleteById(id)
+                        }
+                        return@withLock
                     }
-                    return@launch
+                    val json = String(payload, StandardCharsets.UTF_8)
+                    when (kind) {
+                        KIND_MEMBERS -> handleMember(json)
+                        KIND_PRODUCTS -> handleProduct(json)
+                        KIND_LIST_ITEMS -> handleListItem(json)
+                        KIND_FAVORITES -> handleFavorite(json)
+                        KIND_DEPARTMENTS -> handleDepartment(json)
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error handling incoming message", e)
                 }
-                val json = String(payload, StandardCharsets.UTF_8)
-                when (kind) {
-                    KIND_MEMBERS -> handleMember(json)
-                    KIND_PRODUCTS -> handleProduct(json)
-                    KIND_LIST_ITEMS -> handleListItem(json)
-                    KIND_FAVORITES -> handleFavorite(json)
-                    KIND_DEPARTMENTS -> handleDepartment(json)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error handling incoming message", e)
             }
+        }
+    }
+
+    /** Replays any list_items/favorites that were buffered waiting for [productId]. */
+    private suspend fun flushPending(productId: String) {
+        pendingItems.remove(productId)?.let { buffered ->
+            Log.i(TAG, "Flushing ${buffered.size} buffered list_item(s) for product $productId")
+            buffered.forEach { handleListItem(it) }
+        }
+        pendingFavorites.remove(productId)?.let { buffered ->
+            Log.i(TAG, "Flushing ${buffered.size} buffered favorite(s) for product $productId")
+            buffered.forEach { handleFavorite(it) }
         }
     }
 
@@ -186,12 +211,16 @@ class MqttSyncSource @Inject constructor(
             local == null -> db.productDao().upsert(remote)
             remote.updatedAt > local.updatedAt -> db.productDao().update(remote)
         }
+        // The product now exists locally: replay anything that arrived before it.
+        flushPending(remote.id)
     }
 
     private suspend fun handleListItem(json: String) {
         val remote = gson.fromJson(json, ListItemEntity::class.java)
         if (db.productDao().getById(remote.productId) == null) {
-            Log.w(TAG, "Skipping list_item ${remote.id}: product missing")
+            // Product not here yet (out-of-order delivery): buffer and replay on arrival.
+            pendingItems.getOrPut(remote.productId) { mutableListOf() }.add(json)
+            Log.w(TAG, "Buffering list_item ${remote.id}: product ${remote.productId} not yet present")
             return
         }
         val local = db.listItemDao().getById(remote.id)
@@ -201,7 +230,8 @@ class MqttSyncSource @Inject constructor(
     private suspend fun handleFavorite(json: String) {
         val remote = gson.fromJson(json, FavoriteEntity::class.java)
         if (db.productDao().getById(remote.productId) == null) {
-            Log.w(TAG, "Skipping favorite ${remote.id}: product missing")
+            pendingFavorites.getOrPut(remote.productId) { mutableListOf() }.add(json)
+            Log.w(TAG, "Buffering favorite ${remote.id}: product ${remote.productId} not yet present")
             return
         }
         val local = db.favoriteDao().getById(remote.id)
