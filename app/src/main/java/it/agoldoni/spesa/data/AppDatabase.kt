@@ -23,7 +23,11 @@ import it.agoldoni.spesa.data.entity.ProductEntity
         FavoriteEntity::class,
         DepartmentEntity::class
     ],
-    version = 4,
+    // v5: product/list_item/favorite ids are now derived from natural keys
+    // (product.id = nameKey, list_item.id / favorite.id = productId) so the same
+    // entity has the same id on every device. No 4->5 migration: the existing
+    // UUID-keyed rows are dropped via fallbackToDestructiveMigration and re-synced.
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

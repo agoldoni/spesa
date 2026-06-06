@@ -115,7 +115,9 @@ class SpesaRepository @Inject constructor(
             }
             else -> {
                 val item = ListItemEntity(
-                    id = UUID.randomUUID().toString(),
+                    // Identity is the productId (one list entry per product), so the
+                    // same entry has the same id across devices and merges via LWW.
+                    id = productId,
                     productId = productId,
                     quantity = 1,
                     memberId = memberId,
@@ -173,7 +175,9 @@ class SpesaRepository @Inject constructor(
             val existingTomb = all.firstOrNull { it.productId == productId }
             val fav = existingTomb?.copy(ordering = ordering, updatedAt = now, deleted = false)
                 ?: FavoriteEntity(
-                    id = UUID.randomUUID().toString(),
+                    // Identity is the productId (one favorite per product) for stable
+                    // cross-device id and correct last-write-wins merge.
+                    id = productId,
                     productId = productId,
                     ordering = ordering,
                     updatedAt = now
@@ -246,7 +250,10 @@ class SpesaRepository @Inject constructor(
         db.productDao().findByKey(key)?.let { return it }
         val now = System.currentTimeMillis()
         val product = ProductEntity(
-            id = UUID.randomUUID().toString(),
+            // Deterministic id from the name: the same product resolves to the same
+            // id on every device, so concurrent creation can't produce a nameKey
+            // conflict (which previously cascade-deleted the linked list items).
+            id = key,
             name = name,
             nameKey = key,
             addedAt = now,
