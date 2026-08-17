@@ -26,7 +26,7 @@ android {
             storeFile = file(System.getenv("KEYSTORE_FILE") ?: "${System.getProperty("user.home")}/.android/release-key.jks")
             storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
             keyAlias = System.getenv("KEY_ALIAS") ?: "release"
-            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
+            keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: ""
         }
     }
 
@@ -63,6 +63,17 @@ android {
                 "META-INF/INDEX.LIST",
                 "META-INF/io.netty.versions.properties"
             )
+        }
+    }
+}
+
+// L'APK release si chiama sempre spesa.apk invece di app-release.apk
+androidComponents {
+    onVariants(selector().withBuildType("release")) { variant ->
+        variant.outputs.forEach { output ->
+            (output as? com.android.build.api.variant.impl.VariantOutputImpl)
+                ?.outputFileName
+                ?.set("spesa.apk")
         }
     }
 }

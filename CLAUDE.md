@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ./install-all.sh --build         # Build + install
 ```
 
-Release signing requires env vars: `KEYSTORE_FILE` (default `~/.android/release-key.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS` (default `release`), `KEY_PASSWORD`.
+Release signing requires env vars: `KEYSTORE_FILE` (default `~/.android/release-key.jks`), `KEYSTORE_PASSWORD`, `KEY_ALIAS` (default `release`), `KEY_PASSWORD` (default: same as `KEYSTORE_PASSWORD`). The release APK is emitted as `spesa.apk` (not `app-release.apk`).
 
 There are no tests configured in this project.
 

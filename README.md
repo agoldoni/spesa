@@ -42,11 +42,11 @@ Per la build di release, esportare prima le variabili d'ambiente:
 export KEYSTORE_FILE=~/.android/release-key.jks   # default, omettibile
 export KEYSTORE_PASSWORD=<password>
 export KEY_ALIAS=release                           # default, omettibile
-export KEY_PASSWORD=<password>
+export KEY_PASSWORD=<password>                     # default: KEYSTORE_PASSWORD, omettibile
 ./build.sh release
 ```
 
-L'APK viene emesso in `app/build/outputs/apk/release/app-release.apk`.
+L'APK viene emesso in `app/build/outputs/apk/release/spesa.apk`.
 
 ### Tramite Gradle direttamente
 
@@ -70,7 +70,7 @@ L'APK viene emesso in `app/build/outputs/apk/release/app-release.apk`.
 | `KEYSTORE_FILE` | Percorso del keystore | `~/.android/release-key.jks` |
 | `KEYSTORE_PASSWORD` | Password del keystore | — |
 | `KEY_ALIAS` | Alias della chiave | `release` |
-| `KEY_PASSWORD` | Password della chiave | — |
+| `KEY_PASSWORD` | Password della chiave | `KEYSTORE_PASSWORD` |
 
 ## Emulatore e dispositivi
 
